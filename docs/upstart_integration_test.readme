@@ -1,0 +1,51 @@
+# This is a general procedure that was used to validate
+# the creation and deployment of an upstart script.
+
+
+
+# set up the development sandbox
+
+git clone kbase@git.kbase.us:dev_container
+git clone kbase@git.kbase.us:typecomp dev_container/modules/typecomp
+git clone kbase@git.kbase.us:kbapi_common dev_container/modules/kbapi_common
+git clone kbase@git.kbase.us:auth dev_container/modules/auth
+git clone kbase@git.kbase.us:jars dev_container/modules/jars
+git clone http://github.com/kbase/upstart_integration dev_container/modules/upstart_integration
+
+
+
+# now go ahead and build and deploy the modules
+
+cd dev_container
+./bootstrap /kb/runtime
+source user-env.sh
+make
+make deploy
+
+
+
+# deploy the upstart script (remove the previous upstart script
+# if you have done this step in the past).
+
+rm /etc/init/UpstartIntegration.conf
+cd modules/upstart_integration/
+make deploy-upstart
+
+
+
+# test the upstart script
+
+start UpstartIntegration
+source client-tests/scratch.t 
+stop UpstartIntegration
+source client-tests/scratch.t 
+
+
+
+# test the start_service and stop_service scripts
+
+/kb/deployment/services/upstart_integration/start_service &
+source client-tests/scratch.t 
+/kb/deployment/services/upstart_integration/stop_service
+source client-tests/scratch.t 
+
