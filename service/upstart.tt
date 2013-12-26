@@ -12,10 +12,9 @@ stop on runlevel [!23]
 respawn
 respawn limit 10 5
 
+pre-start exec chown [% kb_runas_user %] [% kb_top %]/services/[% kb_service_dir %]
+
 # setuid [% kb_runas_user %] will work if you upgrade upstart to 1.4 or higher
 # Then you don't need to do the su
 
-# pre-start exec chown [% kb_runas_user %] [% kb_top %]/services/[% kb_service_dir %]
-# exec su [% kb_runas_user %] -c '[% kb_top %]/services/[% kb_service_dir %]/start_service >/dev/null 2>&1'
-
-exec start-stop-daemon --start --make-pidfile --pidfile /var/run/[% kb_service_name %].pid --chuid [% kb_runas_user %] --exec [% kb_top %]/services/[% kb_service_dir %]/start_service >/dev/null 2>&1
+exec su [% kb_runas_user %] -c '[% kb_top %]/services/[% kb_service_dir %]/start_service >/dev/null 2>&1'
