@@ -1,0 +1,143 @@
+1.  git clone kbase@git.kbase.us:dev_container and cd into it.
+
+2.  cd into the dev_container and create a modules/auto_deploy directory and
+create a lib directory within the auto_deploy directory (the lib directory
+is needed later).
+
+3.  Write a module make file in the auto_deploy directory; add the line
+VARS_OLD := $(.VARIABLES) to the very top of the make file.
+
+This is going to capture all of the built-in variables in VARS_OLD. For
+ease of interpertation, we're not going to print any of these out. We
+will only print the variables that we've added to the make file.
+
+Now add some variables and a couple necessary targets to the make file.
+Here is what a finished make file could look like.
+
+VARS_OLD := $(.VARIABLES)
+TOP_DIR = ../..
+DEPLOY_RUNTIME ?= /kb/runtime
+TARGET ?= /kb/deployment
+
+SERVICE_SPEC = auto_deploy.spec
+SERVICE_NAME = AutoDeploy
+SERVICE_PORT = 12121
+SERVICE_DIR  = auto_deploy
+
+default:
+
+vars:
+        @echo "nothing to do for default"
+        $(foreach v,                                        \
+        $(filter-out $(VARS_OLD) VARS_OLD,$(.VARIABLES)), \
+        $(info $(v) = $($(v))))
+
+deploy: deploy-client deploy-service
+        @echo "nothing to do for deploy"
+
+deploy-client: vars
+        @echo "nothing to do for deploy-client"
+
+deploy-service: vars
+        @echo "nothing to do for deploy-service"
+
+test:
+        @echo "nothing to do for test"
+
+
+5. Now go ahead and run your makefile. This can be done in a couple ways.
+You can run it directly from the modules/auto_deploy directory by running
+make. Alternatively, you can run it from the dev_container top dir using the
+system makefile. You should see the variables and their values that were 
+declared and defined in the module make file regardles of your approach.
+
+
+Now we move on to examine the behavior of the auto-deploy program that is
+provided with the dev_container since Feb, 2012. The auto-deploy program
+has a couple important features.
+	a) a cfg file is taken as an imput
+	b) the cfg file is created by the bootstrap script and is called
+	   bootstrap.cfg. Often times you will want to edit this file before
+	   calling auto-deploy. One reason to edit it is so that you are
+	   not building everyting in the dev_container modules directory.
+	c) variable injection into the module makefiles. 
+
+This last item (c) is what we're going to demonstrate next.
+
+NOTE: there must be a lib directory in the module directory in order for it
+to get added to the module list inside the boostrap script. This is necessary
+because the creation of the bootstrap.cfg file loops over all the modules
+in the module list and pulls in to the boostrap.cfg file that module's
+deploy.cfg file.
+
+The auto-deploy program will read in a config file and then execute the system
+make file. The auto-deploy program allows fine control of whether deploy-client,
+deploy-service, or both are called on each module make file. The auto-deploy
+program also sets up make file variables based on the ini style key value
+pairs in the config file that is passed in.
+
+The bootstrap script has a feature in it in that collects the module deploy.cfg
+files and brings those key value pairs into the boostrap.cfg file. The 
+bootstrap.cfg file is created in the top level of the dev_container.
+
+So, go ahead and create a deploy.cfg file in the modules/auto_deploy directory.
+Here is an example deploy.cfg file that is used to provide the outputs below.
+
+more modules/auto_deploy/deploy.cfg 
+[auto_deploy]
+service-host = localhost
+service-port = 1313
+
+The sequence of commands to make this all work are executed in the top level
+of the dev_container.
+
+./bootstrap /kb/runtime
+source user-env.sh
+perl auto-deploy
+
+Here are the variables passed from the system make file to the module makefile.
+Notice specifically SERVICE_PORT. It's value came from the bootstrap.cfg file.
+This variable no longer contained in the .VARIABLES variable of the module
+make file.
+
+$VAR1 = [
+          'make',
+          '-C',
+          'modules/auto_deploy',
+          'deploy-client',
+          'DEPLOY_SERVICE=',
+          'TARGET=/kb/deployment',
+          'DEPLOY_RUNTIME=/kb/runtime',
+          'DEPLOY_CLIENT=auto_deploy',
+          'SERVICE_PORT=1313',
+          'SERVICE_HOST=localhost'
+        ];
+
+
+i
+
+Here are the variables defined within the module make file as extracted from
+the .VARIABLES variable.
+
+SERVICE_NAME = AutoDeploy
+SERVICE_DIR = auto_deploy
+SERVICE_SPEC = auto_deploy.spec	
+TOP_DIR = ../..
+
+And here is the set of variables defined within the module make file when
+the module makefile is executed directly from within the module directory.
+
+TARGET = /kb/deployment
+SERVICE_NAME = AutoDeploy
+DEPLOY_RUNTIME = /kb/runtime
+SERVICE_PORT = 12121
+SERVICE_DIR = auto_deploy
+SERVICE_SPEC = auto_deploy.spec
+TOP_DIR = ../..
+
+So, in summary, what ever you pass into the auto-deploy in the form of ini
+style key value pairs has the potential to override make variables in the
+module makefile. The rule is the key passed into the auto-deploy script is
+uppercased and dashes are converted to underscores. These transformed tokens
+are then passed as variable names to the module make on the command line.
+
